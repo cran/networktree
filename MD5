@@ -1,0 +1,13 @@
+fac0b4137cb30dff00fe8c68c2ea0781 *DESCRIPTION
+eff06fff262bcee95740b8e1506438d2 *NAMESPACE
+edc9f94e65f24455de3651eaea97e85c *NEWS.md
+733d19baec63e96d6766b1f170f4bc51 *R/data_documentation.R
+7c8747cb95fa1a47bc41fc757d4f2e59 *R/hidden_functions.R
+514733cbc1a04236ad749d430e09de6b *R/imports.R
+27d07823f1ac44c13a10c8c5f3fed982 *R/mvnfit.R
+2b85dd99b4edd4067abf37cb63ee1666 *R/networktree.R
+925ab8fb7af45894162d2e26159a6f5f *data/workaholic.rda
+a250ca68b25504e1e5c43f5c6e6b4256 *man/mvnfit.Rd
+fac62ca7acd9ab76dd960f4fa1444a4a *man/networktree.Rd
+2e7415765dc4a8252d7556532d77f125 *man/plot.networktree.Rd
+a1ecaed3507db986f3bd700f50c07e20 *man/workaholic.Rd
