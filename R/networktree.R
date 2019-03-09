@@ -73,8 +73,9 @@ networktree.default <- function(nodevars, splitvars,
   if(is.null(colnames(splitvars))){colnames(splitvars) <- paste('splitvars',1:ncol(splitvars),sep="")}
   
   if(method[1]=="mob"){
-    d <- as.data.frame(cbind(nodevars,splitvars))
+    d <- data.frame(nodevars,splitvars)
     form <- paste(paste(colnames(nodevars), collapse=" + "), "~",paste(colnames(splitvars), collapse=" + "))
+    form <- as.formula(form)
     res <- networktree.formula(form, data = d, type=type, method=method, na.action=na.action, model = model, ...)
     
   } else if(method[1]=="ctree"){
@@ -116,6 +117,16 @@ networktree.formula <- function(formula, data, type=c("cor", "pcor", "glasso"),
     ## use dots for setting up mob_control
     control <- partykit::mob_control(...)
     control$ytype <- "matrix"
+
+    ## set default for minsize if not specified
+    if(is.null(control$minsize)) { 
+	F <- Formula::Formula(formula)
+
+	k <- ncol(stats::model.matrix(~ 0 + .,
+		 model.part(F, stats::model.frame(F, data = data, rhs = 0), lhs = TRUE)
+	))
+	control$minsize <- k * (k-1) / 2 + 1
+    }
     
     ## control options for mvnfit
     mvncontrol <- list(model=model)
@@ -136,7 +147,7 @@ networktree.formula <- function(formula, data, type=c("cor", "pcor", "glasso"),
   } else if(method[1]=="ctree"){
     charformulaLHS <-   strsplit(as.character(formula), "+", fixed=T)[[2]]
     n <- length(charformulaLHS)
-    control<-NULL
+    control <- NULL
     # Need to include n so cortrafo can count vars on left hand side
     res <- partykit::ctree(formula=formula, data=data,
                             ytrafo=function(data, weights,control) {cortrafo(data=data, weights=weights, control=control, n=n, model=model)},
@@ -162,12 +173,13 @@ print.networktree<- function(x,
 #'
 #' @param x an object of type 'networktree'
 #' @param type "cor", "pcor", or "glasso". If set to NULL, type detected from x
-#' @param layout argument passed to qgraph. Can be set to custom layout.
 #' @param ... additional arguments passed qgraph
 #'
 #'@export
-plot.networktree <- function(x, type=NULL,layout="circle", ...) {
+plot.networktree <- function(x, type = NULL, ...) {
   
+  dots <- list(...)
+
   if(is.null(type)) {
     type <- if("cor" %in% class(x)) {"cor"} else if ("pcor" %in% class(x)) {"pcor"
     } else if("glasso" %in% class(x)) {"glasso"
@@ -186,10 +198,10 @@ plot.networktree <- function(x, type=NULL,layout="circle", ...) {
   } else {
     ## plotting network (when model == "correlation")
     net_terminal_inner <- function(obj, ...) {
-      net_terminal(obj,type=type,layout=layout, ...)
+      net_terminal(obj, type = type, ...)
     }
     class(net_terminal_inner) <- "grapcon_generator"
-    partykit::plot.party(x, terminal_panel=net_terminal_inner,...)
+    partykit::plot.party(x, terminal_panel = net_terminal_inner, tp_args = dots)
   }
 }
 
