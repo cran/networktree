@@ -8,12 +8,12 @@
 \usage{
 networktree(...)
 
-\method{networktree}{default}(nodevars, splitvars, type = c("cor",
-  "pcor", "glasso"), method = c("mob", "ctree"), model = "correlation",
-  na.action = na.pass, weights = NULL, ...)
+\method{networktree}{default}(nodevars, splitvars, method = c("mob",
+  "ctree"), model = "correlation", transform = c("cor", "pcor",
+  "glasso"), na.action = na.omit, weights = NULL, ...)
 
-\method{networktree}{formula}(formula, data, type = c("cor", "pcor",
-  "glasso"), method = c("mob", "ctree"), na.action = na.pass,
+\method{networktree}{formula}(formula, data, transform = c("cor", "pcor",
+  "glasso"), method = c("mob", "ctree"), na.action = na.omit,
   model = "correlation", ...)
 }
 \arguments{
@@ -24,14 +24,13 @@ or \code{\link[partykit]{ctree_control}} (ctree)}
 
 \item{splitvars}{the variables with which to test split the network. Can be vector, matrix, or dataframe}
 
-\item{type}{the type of network to compute. Can be "cor", "pcor", or "glasso". Note that networks
-are always stored internally as correlation matrices, but will be auto-adjusted in plots etc. according
-to type}
-
 \item{method}{"mob" or "ctree"}
 
 \item{model}{can be any combination of c("correlation", "mean", "variance")
 splits are determined based on the specified characteristics}
+
+\item{transform}{should stored correlation matrices be transformed to partial correlations
+or a graphical lasso for plotting? Can be set to "cor" (default), "pcor", or "glasso"}
 
 \item{na.action}{a function which indicates what should happen when the data
 contain missing values (\code{NA}s).}
@@ -82,4 +81,8 @@ tree3 <- networktree(nodevars=d[,3:5], splitvars=d[,1:2],
 tree4 <- networktree(nodevars=d[,3:5], splitvars=d[,1:2],
                      alpha=0.01)
 }
+}
+\references{
+Jones PJ, Mair P, Simon T, Zeileis A (2019). Network Model Trees. OSF
+Preprints. https://doi.org/10.31219/osf.io/ha4cw
 }

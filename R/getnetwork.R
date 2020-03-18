@@ -8,7 +8,8 @@
 #' @param tree a networktree object
 #' @param id the node in the tree to extract. Use summary(tree) to see
 #' id numbers for each split
-#' @param type "cor", "pcor", or "glasso". Defaults to automatic detection
+#' @param transform should stored correlation matrices be transformed to partial correlations 
+#' or graphical lasso? Can be set to "cor", "pcor", or "glasso". Defaults to automatic detection
 #' @param ... arguments passed to qgraph (e.g., "tuning", "threshold")
 #'
 #' @examples
@@ -29,19 +30,19 @@
 #' getnetwork(tree1, id=1)
 #'
 #'@export
-getnetwork <- function(tree, id=1L, type = "detect", ...){
+getnetwork <- function(tree, id=1L, transform = "detect", ...){
 
   terminal_node <- tree[id]
   
-  if(type=="detect"){
+  if(transform=="detect"){
     if("cor" %in% class(terminal_node)){
-      type <- "cor"
+      transform <- "cor"
     } else if ("pcor" %in% class(terminal_node)){
-      type <- "pcor"
+      transform <- "pcor"
     } else if ("glasso" %in% class(terminal_node)){
-      type <- "glasso"
+      transform <- "glasso"
     } else {
-      stop("Unable to detect type")
+      stop("Unable to detect transform")
     }
   }
   
@@ -55,6 +56,7 @@ getnetwork <- function(tree, id=1L, type = "detect", ...){
     matnames <- names(terminal_node$fitted[['(response)']])
   } else if ("mob_networktree" %in% class(terminal_node)){
     cors       <- terminal_node$node$info$coefficients
+    cors       <- cors[grepl("rho", names(cors))] # select only cors, not mean/var
     matnames   <- attr(terminal_node$info$terms$response, "term.labels")
     n          <- length(matnames)
     sampleSize <- terminal_node$node$info$nobs
@@ -62,19 +64,19 @@ getnetwork <- function(tree, id=1L, type = "detect", ...){
   cormat <- matrix(as.numeric(),n,n); diag(cormat) <- rep(1, n)
   cormat[lower.tri(cormat)] <- cors
   cormat[upper.tri(cormat)] <- t(cormat)[upper.tri(cormat)]
-  colnames(cormat) <- rownames(cormat) <- matnames
   info <- list(cormat     = cormat,
               sampleSize = sampleSize)
-  
-  net  <- qgraph::getWmat(switch(type[1],
-                 "cor"    = qgraph::qgraph(info$cormat, graph = "default",
-                                           DoNotPlot = TRUE, ...),
-                 "pcor"   = qgraph::qgraph(info$cormat, graph = "pcor",
-                                           DoNotPlot = TRUE, ...),
-                 "glasso" = qgraph::qgraph(Matrix::nearPD(info$cormat)$mat,
+  dots <- list(...)
+  labels <- if(is.null(dots$labels)){matnames}else{dots$labels}
+  net  <- qgraph::getWmat(switch(transform[1],
+                 "cor"    = suppressWarnings(qgraph::qgraph(info$cormat, graph = "default",
+                                           DoNotPlot = TRUE, labels = labels, ...)),
+                 "pcor"   = suppressWarnings(qgraph::qgraph(info$cormat, graph = "pcor",
+                                           DoNotPlot = TRUE, labels = labels, ...)),
+                 "glasso" = suppressWarnings(qgraph::qgraph(Matrix::nearPD(info$cormat)$mat,
                                            graph = "glasso", sampleSize = info$sampleSize,
-                                           DoNotPlot = TRUE, ...)))
-  return(net)
+                                           DoNotPlot = TRUE, labels = labels, ...))))
+   return(net)
 }
 
 
