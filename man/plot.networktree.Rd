@@ -2,22 +2,46 @@
 % Please edit documentation in R/networktree.R
 \name{plot.networktree}
 \alias{plot.networktree}
-\title{Plotting 'treenetwork' objects}
+\title{Plotting 'networktree' objects}
 \usage{
-\method{plot}{networktree}(x, transform = NULL, layout = "lock",
-  partyargs = list(), ...)
+\method{plot}{networktree}(
+  x,
+  terminal_panel = NULL,
+  transform = NULL,
+  layout = "lock",
+  sdbars = FALSE,
+  tnex = 3,
+  partyargs = list(),
+  na.rm = TRUE,
+  ...
+)
 }
 \arguments{
 \item{x}{an object of type 'networktree'}
+
+\item{terminal_panel}{an optional panel function of the form function(node)
+plotting the terminal nodes. Alternatively, a panel generating function
+of class "grapcon_generator" that is called with arguments x and tp_args
+to set up a panel function. Or, a character choosing one of the implemented
+standard plots \code{"graph"}, \code{"box"}, \code{"matrix"} or \code{"bar"}.
+The default (\code{NULL}) chooses an appropriate panel function depending
+on the "model" argument.}
 
 \item{transform}{"cor", "pcor", or "glasso". If set to NULL, transform detected from x}
 
 \item{layout}{network layout, passed to qgraph. Default "lock" computes spring 
 layout for the full sample and applies this to all graphs}
 
-\item{partyargs}{additional arguments (list format) passed to \code{partykit::plot.party}}
+\item{sdbars}{if using a barplot, should std deviation error bars be plotted?}
 
-\item{...}{additional arguments passed qgraph}
+\item{tnex}{terminal node extension (passed to plot.party). To make the terminal plots bigger, increase this value.}
+
+\item{partyargs}{additional arguments (list format) passed to \code{partykit::plot.party}
+plotting function that takes partitioned data as input}
+
+\item{na.rm}{should NA values be removed prior to calculating relevant parameters?}
+
+\item{...}{additional arguments passed to qgraph or barplot}
 }
 \description{
 Wraps plot.party to plot a tree model with networks on the ends. Networks

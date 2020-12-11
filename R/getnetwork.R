@@ -10,6 +10,7 @@
 #' id numbers for each split
 #' @param transform should stored correlation matrices be transformed to partial correlations 
 #' or graphical lasso? Can be set to "cor", "pcor", or "glasso". Defaults to automatic detection
+#' @param verbose should warnings and messages from transformation functions (qgraph) be printed?
 #' @param ... arguments passed to qgraph (e.g., "tuning", "threshold")
 #'
 #' @examples
@@ -30,7 +31,7 @@
 #' getnetwork(tree1, id=1)
 #'
 #'@export
-getnetwork <- function(tree, id=1L, transform = "detect", ...){
+getnetwork <- function(tree, id=1L, transform = "detect", verbose = FALSE,...){
 
   terminal_node <- tree[id]
   
@@ -47,13 +48,22 @@ getnetwork <- function(tree, id=1L, transform = "detect", ...){
   }
   
   if("ctree_networktree" %in% class(terminal_node)){
-    n <- ncol(terminal_node$fitted[['(response)']])
-    sampleSize <- nrow(terminal_node$fitted[['(response)']])
-    node_trans <- useCortrafo(data= terminal_node$fitted[['(response)']],
-                              weights=terminal_node$fitted[['(weights)']],
-                              n=n)
+    simpleCortrafo <- function(data){
+      obs <- nrow(data)
+      n <- ncol(data)
+      mymat <- matrix(list(),n,n)
+      for(i in 1:n){
+        for(j in 1:n){
+          mymat[[i,j]] <- scale(data[[i]]) * scale(data[[j]])
+        }
+      }
+      matrix(unlist(mymat[lower.tri(mymat)]), obs, (n^2-n)/2)
+    }
+    node_trans <- simpleCortrafo(data=terminal_node$fitted[['(response)']])
     cors <- apply(node_trans, 2, mean, na.rm=T)
     matnames <- names(terminal_node$fitted[['(response)']])
+    n <- ncol(terminal_node$fitted[['(response)']])
+    sampleSize <- nrow(terminal_node$fitted[['(response)']])
   } else if ("mob_networktree" %in% class(terminal_node)){
     cors       <- terminal_node$node$info$coefficients
     cors       <- cors[grepl("rho", names(cors))] # select only cors, not mean/var
@@ -68,15 +78,13 @@ getnetwork <- function(tree, id=1L, transform = "detect", ...){
               sampleSize = sampleSize)
   dots <- list(...)
   labels <- if(is.null(dots$labels)){matnames}else{dots$labels}
-  net  <- qgraph::getWmat(switch(transform[1],
-                 "cor"    = suppressWarnings(qgraph::qgraph(info$cormat, graph = "default",
-                                           DoNotPlot = TRUE, labels = labels, ...)),
-                 "pcor"   = suppressWarnings(qgraph::qgraph(info$cormat, graph = "pcor",
-                                           DoNotPlot = TRUE, labels = labels, ...)),
-                 "glasso" = suppressWarnings(qgraph::qgraph(Matrix::nearPD(info$cormat)$mat,
-                                           graph = "glasso", sampleSize = info$sampleSize,
-                                           DoNotPlot = TRUE, labels = labels, ...))))
-   return(net)
+  
+  net <- nettransform(cor = info$cormat, 
+                      n = info$sampleSize, 
+                      labels = labels,
+                      transform = transform,
+                      verbose = verbose)
+  return(net)
 }
 
 

@@ -33,6 +33,11 @@ mvnfit <- function(y, x = NULL, start = NULL, weights = NULL,
 
     ### put dots in a list
     dotlist <- list(...)
+    
+    ### check if sufficient network variables exist
+    if(k < 2){
+        stop("mvnfit: At least 2 network variables (nodevars / left hand of formula) are required.")
+    }
 
     ### check if correlation matrix is identified
     if(n <= k*(k-1)/2) {
@@ -60,8 +65,7 @@ mvnfit <- function(y, x = NULL, start = NULL, weights = NULL,
     dec <- tryCatch(chol(Om), error = function(e) e)
     if(inherits(dec, "error")) {
         loglik <- Inf
-    }
-    else {
+    } else {
         tmp <- backsolve(dec, y, transpose = TRUE)
         loglik <- -n * (.5 * k * log(2*pi) + sum(log(coef[1L:k + k])) +
                   sum(log(diag(dec)))) - .5 * sum(tmp^2)
@@ -102,6 +106,7 @@ mvnfit <- function(y, x = NULL, start = NULL, weights = NULL,
     if(any("variance"    == model)) id <- c(id, 1:k + k)
     if(any("correlation" == model)) id <- c(id, 1:(k*(k-1)/2) + 2*k)
 
+	full_coef <- coef
     coef <- coef[id]
     ef   <- ef[, id]
 
@@ -116,6 +121,8 @@ mvnfit <- function(y, x = NULL, start = NULL, weights = NULL,
     list(coefficients = coef,
          objfun = -loglik,
          estfun = ef,
-         object = vc)
+         object = vc,
+         mvn = list(mu = full_coef[1:k], sigma = full_coef[1:k + k], rho = Om, ynam = ynam)
+	)
 }
 

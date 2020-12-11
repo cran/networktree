@@ -10,13 +10,9 @@ utils::globalVariables(c("na.pass"))
 #'
 #' Wraps the mob() and ctree() functions from the partykit package.
 #' 
-#' Note: this package is in its early stages and the interface may change
-#' for future versions.
-#'
 #' @references
 #'
-#' Jones PJ, Mair P, Simon T, Zeileis A (2019). Network Model Trees. OSF
-#' Preprints. https://doi.org/10.31219/osf.io/ha4cw
+#' Jones, P.J., Mair, P., Simon, T., Zeileis, A. (2020). Network trees: A method for recursively partitioning covariance structures. Psychometrika. Advance online publication. https://doi.org/10.1007/s11336-020-09731-4
 #'
 #' @examples
 #' 
@@ -35,6 +31,11 @@ utils::globalVariables(c("na.pass"))
 #' 
 #' ## Formula interface
 #' tree2 <- networktree(y1 + y2 + y3 ~ trend + foo, data=d)
+#' 
+#' ## plot 
+#' plot(tree2)
+#' plot(tree2, terminal_panel = "box")
+#' plot(tree2, terminal_panel = "matrix")
 #' 
 #' \donttest{
 #' ## Conditional version
@@ -71,25 +72,8 @@ networktree.default <- function(nodevars, splitvars,
                                 transform=c("cor", "pcor", "glasso"),
                                 na.action=na.omit,
                                 weights=NULL,...){
-  if (!inherits(nodevars, "data.frame")) {
-      if (is.vector(nodevars)) {
-	  nodevars <- matrix(nodevars, ncol = 1)
-      }
-      if (any(is.null(colnames(nodevars)))) {
-          colnames(nodevars) <- paste('nodevars',1:ncol(nodevars),sep="")
-      }
-      nodevars <- as.data.frame(nodevars)
-  }
-
-  if (!inherits(splitvars, "data.frame")) {
-      if (is.vector(splitvars)) {
-	  splitvars <- matrix(splitvars, ncol = 1)
-      }
-      if (any(is.null(colnames(splitvars)))) {
-          colnames(splitvars) <- paste('splitvars',1:ncol(splitvars),sep="")
-      }
-      splitvars <- as.data.frame(splitvars)
-  }
+  nodevars <- formatnetworktreeinput(nodevars, prefix="nodevar")
+  splitvars <- formatnetworktreeinput(splitvars, prefix="splitvar")
 
   if(method[1]=="mob"){
     d <- data.frame(nodevars,splitvars)
@@ -101,11 +85,10 @@ networktree.default <- function(nodevars, splitvars,
     netdata <- as.data.frame(nodevars); splitvars <- as.data.frame(splitvars)
     d <- cbind(netdata, splitvars)
     f1 <- Formula::as.Formula(paste(c(paste(colnames(netdata),collapse=" + "), " ~ ", paste(colnames(splitvars), collapse=" + ")), collapse=""))
-    n <- ncol(netdata)
-    control<-NULL
-    # Need to include n so cortrafo can count vars on left hand side
     tree <- partykit::ctree(formula=f1, data=d,
-                            ytrafo=function(data, weights,control) {cortrafo(data=data, weights=weights, control=control, n=n, model=model)},
+                            ytrafo=function(data, weights,control) {
+                              cortrafo(data=data, weights=weights, control=NULL, model=model)
+                              },
                              na.action=na.action, control=partykit::ctree_control(...))
     class(tree) <- c("networktree", "ctree_networktree", transform[1], class(tree))
     class(tree$info$call) <- model ## discreetly store model
@@ -141,7 +124,7 @@ networktree.formula <- function(formula, data, transform=c("cor", "pcor", "glass
     if(is.null(control$minsize)) { 
 	    F <- Formula::Formula(formula)
 	    k <- ncol(stats::model.matrix(~ 0 + .,
-		              model.part(F, stats::model.frame(F, data = data, rhs = 0), lhs = TRUE)
+		              Formula::model.part(F, stats::model.frame(F, data = data, rhs = 0), lhs = TRUE)
 	              ))
 	    control$minsize <- 2 * k + k * (k-1) / 2
     }
@@ -163,12 +146,10 @@ networktree.formula <- function(formula, data, transform=c("cor", "pcor", "glass
     class(rval) <- c("networktree", "mob_networktree", transform[1], class(rval))
     res <- rval
   } else if(method[1]=="ctree"){
-    charformulaLHS <-   strsplit(as.character(formula), "+", fixed=T)[[2]]
-    n <- length(charformulaLHS)
-    control <- NULL
-    # Need to include n so cortrafo can count vars on left hand side
     res <- partykit::ctree(formula=formula, data=data,
-                            ytrafo=function(data, weights,control) {cortrafo(data=data, weights=weights, control=control, n=n, model=model)},
+                            ytrafo=function(data, weights,control) {
+                              cortrafo(data=data, weights=weights, control=NULL, model=model)
+                              },
                             na.action=na.action, control=partykit::ctree_control(...))
     class(res) <- c("networktree", "ctree_networktree", transform[1], class(res))
     class(res$info$call) <- model ## discreetly store model
@@ -179,7 +160,7 @@ networktree.formula <- function(formula, data, transform=c("cor", "pcor", "glass
 
 ## methods for networktree class
 
-#' Printing 'treenetwork' objects
+#' Printing 'networktree' objects
 #'
 #' Wraps print.modelparty to print a tree model with networks on the ends. 
 #'
@@ -199,22 +180,45 @@ print.networktree<- function(x,
   partykit::print.modelparty(x, title = "Network tree object", FUN=FUN, ...)
 }
 
-#' Plotting 'treenetwork' objects
+#' Plotting 'networktree' objects
 #'
 #' Wraps plot.party to plot a tree model with networks on the ends. Networks
 #' are plotted with qgraph, and additional arguments are passed there
 #'
 #' @param x an object of type 'networktree'
+#' @param terminal_panel an optional panel function of the form function(node)
+#'        plotting the terminal nodes. Alternatively, a panel generating function
+#'        of class "grapcon_generator" that is called with arguments x and tp_args
+#'        to set up a panel function. Or, a character choosing one of the implemented
+#'        standard plots \code{"graph"}, \code{"box"}, \code{"matrix"} or \code{"bar"}.
+#'        The default (\code{NULL}) chooses an appropriate panel function depending
+#'        on the "model" argument. 
 #' @param transform "cor", "pcor", or "glasso". If set to NULL, transform detected from x
 #' @param layout network layout, passed to qgraph. Default "lock" computes spring 
 #' layout for the full sample and applies this to all graphs
+#' @param sdbars if using a barplot, should std deviation error bars be plotted?
+#' @param tnex terminal node extension (passed to plot.party). To make the terminal plots bigger, increase this value. 
 #' @param partyargs additional arguments (list format) passed to \code{partykit::plot.party}
-#' @param ... additional arguments passed qgraph
+#' plotting function that takes partitioned data as input
+#' @param na.rm should NA values be removed prior to calculating relevant parameters?
+#' @param ... additional arguments passed to qgraph or barplot
 #'
 #'@export
-plot.networktree <- function(x, transform = NULL, layout="lock", partyargs=list(), ...) {
+plot.networktree <- function(x, 
+                             terminal_panel = NULL, 
+                             transform = NULL, 
+                             layout = "lock", 
+                             sdbars = FALSE,
+                             tnex = 3,
+                             partyargs=list(), 
+                             na.rm=TRUE,
+                             ...) {
   
-  dots <- list(...)
+  if("mob_networktree" %in% class(x)){
+    model <- x[[1]]$info$dots$model
+  } else {
+    model <- class(x[[1]]$info$call)
+  }
   
   if(is.null(transform)) {
     transform <- if("cor" %in% class(x)) {"cor"} else if ("pcor" %in% class(x)) {"pcor"
@@ -223,42 +227,57 @@ plot.networktree <- function(x, transform = NULL, layout="lock", partyargs=list(
       warning("Type of network could not be detected, plotting glasso networks")}
   }
   
-  if("mob_networktree" %in% class(x)){
-    model <- x[[1]]$info$dots$model
-  } else {
-    model <- class(x[[1]]$info$call)
-  }
-  if("variance" %in% model | "mean" %in% model){
-    warning("Network plotting not yet implemented for splits by variance and mean.\nPlotting partykit summary.")
-    partyargs <- c(partyargs, list(x=x))
-    do.call(what=partykit::plot.party,args=partyargs)
-  } else {
-    if(layout[1]=="lock"){
-      layout <- qgraph::qgraph(getnetwork(x,id=1),layout="spring",DoNotPlot=T)$layout
-    }
-    ## plotting network (when model == "correlation")
-    net_terminal_inner <- function(obj, ...) {
-      net_terminal(obj, transform = transform,layout = layout, ...)
+  if(is.function(terminal_panel)) {
+    net_terminal_inner <- terminal_panel
+  } else if (is.character(terminal_panel)) {
+	terminal_panel <- match.arg(terminal_panel,
+		c("graph", "barplot", "boxplot", "matrix"))
+    net_terminal_inner <- switch(terminal_panel,
+		"graph" = function(obj, ...) {
+            ntqgraph(obj, transform = transform, layout = layout, ...)
+        },
+		"barplot" = ntbarplot,
+		"boxplot" = ntboxplot,
+		"matrix" = ntmatplot,
+		stop("Undefined plotting type!")
+	)
+	class(net_terminal_inner) <- "grapcon_generator"
+  }	else {	
+    if("correlation" %in% model){
+      net_terminal_inner <- function(obj, ...) {
+        ntqgraph(obj, transform = transform, layout = layout, ...)
+      }
+    } else {
+      if("variance" %in% model){
+        net_terminal_inner <- ntboxplot
+      } else {
+        net_terminal_inner <- function(obj, ...) {
+          ntbarplot(obj, sdbars = sdbars, ...)
+        }
+      }
     }
     class(net_terminal_inner) <- "grapcon_generator"
-    needNewPlot <- tryCatch(
-      {
-        par(new=TRUE)
-        FALSE
-      }, 
-      warning=function(cond){
-        return(TRUE)
-      },
-      silent=T
-    )
-    if(needNewPlot){
-      plot.new()
-      partyargs <- c(partyargs, list(x=x, terminal_panel = net_terminal_inner, newpage=FALSE, tp_args = dots))
-      do.call(what=partykit::plot.party,args=partyargs)
-    } else {
-      partyargs <- c(partyargs, list(x=x, terminal_panel = net_terminal_inner, newpage=TRUE, tp_args = dots))
-      do.call(what=partykit::plot.party,args=partyargs)
-    }
+  }
+  
+  # Pass to partykit::plot.party
+  dots <- list(...)
+  needNewPlot <- tryCatch(
+    {
+      par(new=TRUE)
+      FALSE
+    }, 
+    warning=function(cond){
+      return(TRUE)
+    },
+    silent=T
+  )
+  if(needNewPlot){
+    plot.new()
+    partyargs <- c(partyargs, list(x=x, terminal_panel = net_terminal_inner, newpage=FALSE, tp_args = dots, tnex = tnex))
+    do.call(what=partykit::plot.party,args=partyargs)
+  } else {
+    partyargs <- c(partyargs, list(x=x, terminal_panel = net_terminal_inner, newpage=TRUE, tp_args = dots, tnex = tnex))
+    do.call(what=partykit::plot.party,args=partyargs)
   }
 }
 
@@ -289,24 +308,3 @@ predict.networktree <- function(object, newdata = NULL,
   ## obtain coefs
   stats::coef(object)[as.character(node), ]
 }
-
-# Package documentation
-# TODO: fix package documentation. causes a conflict w/networktree function documentation
-#       because they have the same name
-
-# networktree
-#
-#Recursive partitioning (tree models) of psychometric networks
-#
-#@details
-#
-#Includes methods for creating tree models with networks on the final branches.
-#The methods use recursive partitioning on a multivariate normal distribution estimated
-#from the data in order to separate distinct networks from one another.
-#
-#For a complete list of functions, use library(help = "networktree")
-#
-#For a complete list of vignettes, use browseVignettes("networktree")
-#
-# @author Payton J. Jones, Thorsten Simon, & Achim Zeleis
-#"_PACKAGE"
