@@ -11,19 +11,25 @@ ntqgraph <- function(obj,
                      maximum = "local",
                      ...) {
   
-  coef_max_min <- get_coef_max_mins(obj)
-  minimum <- ifelse(minimum[1] == "local", coef_max_min$min$edge, minimum)
-  maximum <- ifelse(maximum[1] == "local", coef_max_min$min$edge, maximum)
-
+  dots <- list(...)
+  if(is.null(dots$theme) & is.null(dots$posCol)){
+    dots$posCol <- "#008585"
+  }
+  if(is.null(dots$theme) & is.null(dots$negCol)){
+    dots$negCol <- "#C7522B"
+  }
   if(layout[1]=="lock"){
     layout <- qgraph::qgraph(getnetwork(obj,id=1),layout="spring",DoNotPlot=T)$layout
   } 
+  coef_max_min <- get_coef_max_mins(obj)
+  minimum <- ifelse(minimum[1] == "local", coef_max_min$min$edge, minimum)
+  maximum <- ifelse(maximum[1] == "local", coef_max_min$min$edge, maximum)
   
   rval <- function(node){
     # Set up parameters
     tid <- partykit::id_node(node)
 
-    network <- getnetwork(obj, id = tid)
+    network <- getnetwork(obj, id = tid, transform = transform)
 
     # Set up viewport
     grid::pushViewport(grid::viewport())
@@ -38,8 +44,13 @@ ntqgraph <- function(obj,
     try(graphics::par(fig = detectPlotDimensions(), mar = rep(0, 4), new = TRUE), silent = TRUE)
     
     ## create base R plot
-    qgraph::qgraph(network, noPar = TRUE, labels=colnames(network), layout=layout, 
-                   maximum = maximum, minimum = minimum,...)
+    qgraph_args <- c(dots,
+                     list(input = network,
+                          noPar = TRUE, layout=layout, 
+                          maximum = maximum, minimum = minimum)
+                     )
+    do.call(what = qgraph::qgraph,
+            args = qgraph_args)
     
     ## reset graphics to original settings
     graphics::par(op)
@@ -190,13 +201,13 @@ ntboxplot <- function(obj,
 }
 class(ntboxplot) <- "grapcon_generator"
 
-ntmatplot <- function(obj, col = grDevices::hcl.colors(11, "Blue-Red 3",
+ntmatplot <- function(obj, transform, col = grDevices::hcl.colors(11, "Blue-Red 3",
                       rev = TRUE), pop = TRUE, bg = "white", ...) {
 
   rval <- function(node){
     # Set up parameters
     tid <- partykit::id_node(node)
-    network <- getnetwork(obj, id = tid)
+    network <- getnetwork(obj, id = tid, transform = transform)
     if("ctree_networktree" %in% class(obj)){
       response_data <- obj[tid]$fitted[['(response)']]
     } else if ("mob_networktree" %in% class(obj)) {

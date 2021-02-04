@@ -12,7 +12,7 @@ utils::globalVariables(c("na.pass"))
 #' 
 #' @references
 #'
-#' Jones, P.J., Mair, P., Simon, T., Zeileis, A. (2020). Network trees: A method for recursively partitioning covariance structures. Psychometrika. Advance online publication. https://doi.org/10.1007/s11336-020-09731-4
+#' Jones, P.J., Mair, P., Simon, T., Zeileis, A. (2020). Network trees: A method for recursively partitioning covariance structures. Psychometrika, 85(4), 926-945. https://doi.org/10.1007/s11336-020-09731-4
 #'
 #' @examples
 #' 
@@ -236,9 +236,11 @@ plot.networktree <- function(x,
 		"graph" = function(obj, ...) {
             ntqgraph(obj, transform = transform, layout = layout, ...)
         },
+		"matrix" = function(obj, ...) {
+		  ntmatplot(obj, transform = transform)
+		},
 		"barplot" = ntbarplot,
 		"boxplot" = ntboxplot,
-		"matrix" = ntmatplot,
 		stop("Undefined plotting type!")
 	)
 	class(net_terminal_inner) <- "grapcon_generator"
@@ -261,6 +263,12 @@ plot.networktree <- function(x,
   
   # Pass to partykit::plot.party
   dots <- list(...)
+  if(!is.null(partyargs$tnex)){
+    tnex <- partyargs$tnex
+    message("The default tnex argument has been overwritten by input to partyargs")
+  } else {
+    partyargs$tnex <- tnex
+  }
   needNewPlot <- tryCatch(
     {
       par(new=TRUE)
@@ -269,14 +277,14 @@ plot.networktree <- function(x,
     warning=function(cond){
       return(TRUE)
     },
-    silent=T
+    silent=TRUE
   )
   if(needNewPlot){
     plot.new()
-    partyargs <- c(partyargs, list(x=x, terminal_panel = net_terminal_inner, newpage=FALSE, tp_args = dots, tnex = tnex))
+    partyargs <- c(partyargs, list(x=x, terminal_panel = net_terminal_inner, newpage=FALSE, tp_args = dots))
     do.call(what=partykit::plot.party,args=partyargs)
   } else {
-    partyargs <- c(partyargs, list(x=x, terminal_panel = net_terminal_inner, newpage=TRUE, tp_args = dots, tnex = tnex))
+    partyargs <- c(partyargs, list(x=x, terminal_panel = net_terminal_inner, newpage=TRUE, tp_args = dots))
     do.call(what=partykit::plot.party,args=partyargs)
   }
 }
